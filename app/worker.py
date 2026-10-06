@@ -9,15 +9,20 @@ from .pipeline import build_job
 async def _process_queued(limit: int = 3) -> list[dict]:
     results = []
     for item in queued_jobs(limit):
+        options = item.get("options_json")
+        if isinstance(options, str):
+            import json
+            options = json.loads(options)
+        options = options or {}
         ok = await build_job(
             item["id"],
             item["prompt"],
-            "professional minimal",
-            15,
-            None,
-            None,
-            None,
-            True,
+            options.get("style", "professional minimal"),
+            int(options.get("duration", 15)),
+            options.get("schedule_at"),
+            options.get("daily"),
+            options.get("timezone"),
+            options.get("auto_schedule", True),
         )
         results.append({"job_id": item["id"], "status": "ready" if ok else "skipped"})
     return results
