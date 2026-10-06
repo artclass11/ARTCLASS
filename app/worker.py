@@ -2,11 +2,28 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from .db import add_schedule, due_schedules, mark_schedule
+from .db import add_schedule, due_schedules, mark_schedule, queued_jobs
 from .instagram import publish_media
+from .pipeline import build_job
+
+async def _process_queued(limit: int = 3) -> list[dict]:
+    results = []
+    for item in queued_jobs(limit):
+        ok = await build_job(
+            item["id"],
+            item["prompt"],
+            "professional minimal",
+            15,
+            None,
+            None,
+            None,
+            True,
+        )
+        results.append({"job_id": item["id"], "status": "ready" if ok else "skipped"})
+    return results
 
 async def run_once(limit: int = 10) -> list[dict]:
-    results = []
+    results = [{"generation": await _process_queued()}]
     for item in due_schedules(limit):
         try:
             media_type = item.get("media_type") or "video"
@@ -18,7 +35,7 @@ async def run_once(limit: int = 10) -> list[dict]:
             if media_type == "text" or not media_urls:
                 raise ValueError("Scheduled job has no publishable media")
 
-            media_id = await publish_media(media_type, media_urls, item["caption"] or "")
+            media_id = await publish_media(media_type, media_urls, item.get("caption") or "")
             mark_schedule(item["id"], "published", published_media_id=media_id)
             results.append({
                 "schedule_id": item["id"],
@@ -28,12 +45,7 @@ async def run_once(limit: int = 10) -> list[dict]:
 
             if item["daily"]:
                 next_dt = datetime.fromisoformat(item["scheduled_at"]) + timedelta(days=1)
-                add_schedule(
-                    item["job_id"],
-                    next_dt.isoformat(),
-                    True,
-                    item["timezone"],
-                )
+                add_schedule(item["job_id"], next_dt.isoformat(), True, item["timezone"])
         except Exception as exc:
             mark_schedule(item["id"], "error", last_error=str(exc))
             results.append({
