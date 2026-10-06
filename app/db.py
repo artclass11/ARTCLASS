@@ -77,10 +77,41 @@ def new_job(prompt: str) -> str:
     c = connect()
     c.execute(
         "INSERT INTO jobs(id,prompt,status,created_at,updated_at) VALUES(?,?,?,?,?)",
-        (job_id, prompt, "processing", ts, ts),
+        (job_id, prompt, "queued", ts, ts),
     )
     c.close()
     return job_id
+
+def claim_job(job_id: str) -> bool:
+    c = connect()
+    cur = c.execute(
+        "UPDATE jobs SET status='processing', updated_at=? WHERE id=? AND status='queued'",
+        (now(), job_id),
+    )
+    c.close()
+    return cur.rowcount == 1
+
+def claim_queued_jobs(limit: int = 3) -> list[dict]:
+    c = connect()
+    c.execute("BEGIN IMMEDIATE")
+    try:
+        rows = c.execute(
+            "SELECT * FROM jobs WHERE status='queued' ORDER BY created_at LIMIT ?",
+            (limit,),
+        ).fetchall()
+        items = [dict(r) for r in rows]
+        for item in items:
+            c.execute(
+                "UPDATE jobs SET status='processing', updated_at=? WHERE id=? AND status='queued'",
+                (now(), item["id"]),
+            )
+        c.execute("COMMIT")
+        return items
+    except Exception:
+        c.execute("ROLLBACK")
+        raise
+    finally:
+        c.close()
 
 def update_job(job_id: str, **fields: Any) -> None:
     fields["updated_at"] = now()
