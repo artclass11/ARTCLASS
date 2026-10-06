@@ -36,6 +36,10 @@ def init_db() -> None:
       video_path TEXT,
       video_url TEXT,
       error TEXT,
+      media_type TEXT,
+      media_urls TEXT,
+      content_type TEXT,
+      platform TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -52,6 +56,16 @@ def init_db() -> None:
       FOREIGN KEY(job_id) REFERENCES jobs(id)
     );
     """)
+    for col, ddl in [
+        ("media_type", "ALTER TABLE jobs ADD COLUMN media_type TEXT"),
+        ("media_urls", "ALTER TABLE jobs ADD COLUMN media_urls TEXT"),
+        ("content_type", "ALTER TABLE jobs ADD COLUMN content_type TEXT"),
+        ("platform", "ALTER TABLE jobs ADD COLUMN platform TEXT"),
+    ]:
+        try:
+            c.execute(ddl)
+        except sqlite3.OperationalError:
+            pass
     c.close()
 
 def now() -> str:
@@ -70,7 +84,8 @@ def new_job(prompt: str) -> str:
 
 def update_job(job_id: str, **fields: Any) -> None:
     fields["updated_at"] = now()
-    allowed = {"status","title","caption","hashtags","script_json","video_path","video_url","error","updated_at"}
+    allowed = {"status","title","caption","hashtags","script_json","video_path","video_url","error",
+                "media_type","media_urls","content_type","platform","updated_at"}
     fields = {k:v for k,v in fields.items() if k in allowed}
     if not fields:
         return
@@ -89,6 +104,7 @@ def get_job(job_id: str) -> dict | None:
     d = dict(row)
     d["script"] = json.loads(d.pop("script_json")) if d.get("script_json") else None
     d["hashtags"] = json.loads(d["hashtags"]) if d.get("hashtags") else []
+    d["media_urls"] = json.loads(d["media_urls"]) if d.get("media_urls") else []
     return d
 
 def add_schedule(job_id: str, scheduled_at: str, daily: bool, timezone_name: str) -> str:
@@ -106,7 +122,7 @@ def claim_due_schedules(limit: int = 10) -> list[dict]:
     c.execute("BEGIN IMMEDIATE")
     try:
         rows = c.execute(
-            """SELECT s.*, j.video_url, j.caption
+            """SELECT s.*, j.video_url, j.caption, j.media_type, j.media_urls, j.content_type, j.platform
                FROM schedules s JOIN jobs j ON j.id=s.job_id
                WHERE s.status='scheduled' AND s.scheduled_at<=?
                ORDER BY s.scheduled_at LIMIT ?""",
