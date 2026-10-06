@@ -11,11 +11,13 @@ from app.video import render_single_image
 
 def test_db_roundtrip():
     init_db()
-    job_id = new_job("test prompt")
+    job_id = new_job("test prompt", {"style": "cinematic", "duration": 30})
     item = get_job(job_id)
     assert item["prompt"] == "test prompt"
-    assert item["status"] == "processing"
+    assert item["status"] == "queued"
     assert item["media_urls"] == []
+    assert item["options"]["style"] == "cinematic"
+    assert item["options"]["duration"] == 30
 
 def test_content_json():
     payload = _clean_json('{"title":"x","scenes":[{"text":"hello","visual":"card"}]}')
