@@ -82,3 +82,62 @@ def render_card_reel(package: dict) -> str:
     ]
     subprocess.run(cmd, check=True, capture_output=True)
     return str(output)
+
+
+def render_single_image(package: dict) -> str:
+    out_dir = Path(settings.media_dir) / str(uuid.uuid4())
+    out_dir.mkdir(parents=True, exist_ok=True)
+    width, height = 1080, 1350
+    img = Image.new("RGB", (width, height), (12, 12, 12))
+    draw = ImageDraw.Draw(img)
+    draw.text((72, 100), "ARTCLASS", font=_font(36, True), fill=(230, 230, 230))
+    title_font = _font(76, True)
+    body_font = _font(42, False)
+    y = 420
+    for line in _wrap(draw, str(package.get("hook") or package.get("title") or ""), title_font, width - 144):
+        draw.text((72, y), line, font=title_font, fill=(255, 255, 255))
+        y += 94
+    body = str(package.get("caption") or package.get("cta") or "")
+    y += 40
+    for line in _wrap(draw, body, body_font, width - 144)[:8]:
+        draw.text((72, y), line, font=body_font, fill=(175, 175, 175))
+        y += 62
+    output = out_dir / f"{_safe(package.get('title', 'post'))}.jpg"
+    img.save(output, "JPEG", quality=94, optimize=True)
+    return str(output)
+
+def render_carousel(package: dict) -> list[str]:
+    out_dir = Path(settings.media_dir) / str(uuid.uuid4())
+    out_dir.mkdir(parents=True, exist_ok=True)
+    slides = package.get("slides") or [
+        {"title": package.get("title", "ARTCLASS"), "body": package.get("hook", "")}
+    ]
+    paths = []
+    for idx, slide in enumerate(slides[:10]):
+        img = Image.new("RGB", (1080, 1350), (12, 12, 12))
+        draw = ImageDraw.Draw(img)
+        draw.text((72, 100), "ARTCLASS", font=_font(32, True), fill=(220, 220, 220))
+        y = 410
+        for line in _wrap(draw, str(slide.get("title", "")), _font(68, True), 936):
+            draw.text((72, y), line, font=_font(68, True), fill=(255, 255, 255))
+            y += 84
+        y += 24
+        for line in _wrap(draw, str(slide.get("body", "")), _font(38), 936)[:9]:
+            draw.text((72, y), line, font=_font(38), fill=(175, 175, 175))
+            y += 55
+        draw.text((72, 1260), f"{idx + 1} / {min(len(slides),10)}", font=_font(28, True), fill=(210,210,210))
+        path = out_dir / f"slide{idx:02d}.jpg"
+        img.save(path, "JPEG", quality=94, optimize=True)
+        paths.append(str(path))
+    return paths
+
+def render_content(package: dict) -> tuple[str, list[str]]:
+    kind = package.get("content_type", "reel")
+    if kind in {"reel", "story", "ad"}:
+        path = render_card_reel(package)
+        return "video", [path]
+    if kind == "post":
+        return "image", [render_single_image(package)]
+    if kind == "carousel":
+        return "carousel", render_carousel(package)
+    return "text", []
