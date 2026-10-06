@@ -91,6 +91,15 @@ def claim_job(job_id: str) -> bool:
     c.close()
     return cur.rowcount == 1
 
+def queued_jobs(limit: int = 3) -> list[dict]:
+    c = connect()
+    rows = c.execute(
+        "SELECT * FROM jobs WHERE status='queued' ORDER BY created_at LIMIT ?",
+        (limit,),
+    ).fetchall()
+    c.close()
+    return [dict(r) for r in rows]
+
 def claim_queued_jobs(limit: int = 3) -> list[dict]:
     c = connect()
     c.execute("BEGIN IMMEDIATE")
