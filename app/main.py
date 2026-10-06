@@ -66,7 +66,14 @@ def root():
 
 @app.post("/v1/content", dependencies=[Depends(auth)])
 async def content(req: ContentRequest, background: BackgroundTasks):
-    job_id = new_job(req.message)
+    job_id = new_job(req.message, {
+        "style": req.style,
+        "duration": req.duration,
+        "schedule_at": req.schedule_at,
+        "daily": req.daily,
+        "timezone": req.timezone,
+        "auto_schedule": req.auto_schedule,
+    })
     background.add_task(
         finish_job,
         job_id,
@@ -85,7 +92,14 @@ async def create(req: CreateRequest, background: BackgroundTasks):
     message = req.message or req.prompt or ""
     if not message:
         raise HTTPException(status_code=422, detail="message is required")
-    job_id = new_job(message)
+    job_id = new_job(message, {
+        "style": req.style,
+        "duration": req.duration,
+        "schedule_at": req.schedule_at,
+        "daily": req.daily,
+        "timezone": req.timezone,
+        "auto_schedule": req.auto_schedule,
+    })
     background.add_task(
         finish_job,
         job_id,
