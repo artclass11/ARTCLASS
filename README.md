@@ -1,77 +1,70 @@
-# ARTCLASS
+# ARTCLASS — AI Instagram Content Agent
 
-ARTCLASS is a prompt-to-video + scheduling agent for Instagram. It is built to create short-form reels from a single prompt, generate a storyboard with an open-source local LLM, render a video from scenes, and optionally publish it to Instagram using the Meta Graph API.
+Prompt -> professional Reel -> caption/hashtags -> schedule -> Instagram.
 
-Key benefits:
-- Prompt-driven video generation workflow
-- Local open-source LLM support via Ollama
-- Free/open-source stack for scripting and rendering
-- Reel creation for 9:16 social video output
-- Optional Instagram auto-scheduling through Meta API
-- Daily content automation workflow
+ARTCLASS is a local-first open-source content automation stack: give the agent one natural-language brief and it handles the content workflow.
 
-## What this MVP includes
-- FastAPI backend for generation and scheduling
-- Local story generation using Ollama
-- Reel rendering with ffmpeg + PIL
-- Instagram scheduling API adapter
-- Command-line workflow for daily posting
+## What it does
 
-## Quick start
+- Generates Reel scripts and captions with a local Ollama model.
+- Renders a 9:16 Reel with FFmpeg and Pillow without paid video APIs.
+- Publishes media through a public URL. Optional GitHub Release asset storage is included for free remote deployments.
+- Schedules and publishes Reels through Instagram's official API.
+- Exposes an MCP server so the capability can be packaged as a ChatGPT/Codex plugin.
+- Includes a GitHub Actions worker that checks scheduled posts every 15 minutes.
+- Includes a fallback content template so rendering still works when Ollama is offline.
 
-1. Install dependencies:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
+The initial renderer is intentionally lightweight. For GPU-based AI visuals, the architecture can be extended with ComfyUI/Wan2.1 while keeping the same agent API.
 
-2. Install FFmpeg:
-   - macOS: `brew install ffmpeg`
-   - Ubuntu: `sudo apt-get install ffmpeg`
+## Open-source stack
 
-3. Install Ollama and pull a local model:
-   ```bash
-   ollama pull llama3.2
-   ```
+Ollama provides a local API for open models. Change OLLAMA_MODEL to use another local model.
+ComfyUI is an optional visual backend, and Wan2.1 is a practical open video model when a GPU is available. Kokoro can be added for local voice generation.
 
-4. Copy the environment template:
-   ```bash
-   cp .env.example .env
-   ```
+## Local run
 
-5. Start the app:
-   ```bash
-   uvicorn app.main:app --reload
-   ```
+1. Install FFmpeg.
+2. Install and run Ollama, then pull a model such as llama3.2:3b.
+3. Install dependencies: pip install -r requirements.txt
+4. Copy .env.example to .env and set ARTCLASS_API_KEY.
+5. Start: uvicorn app.main:app --reload
 
-6. Generate a video:
-   ```bash
-   python scripts/generate_reel.py "A cinematic luxury lifestyle reel for a smart watch, dramatic lighting, upright composition, slow motion, social-first storytelling"
-   ```
+Open /docs to test the API.
 
-7. Schedule a post to Instagram (after you configure your access token):
-   ```bash
-   python scripts/schedule_instagram.py --file output/reel.mp4 --caption "Luxury tech, built for the next move."
-   ```
+## One-prompt API
 
-## Architecture
+POST /v1/create with:
 
-- `app/services/llm.py` - local LLM storyboard generation via Ollama
-- `app/services/video.py` - reel renderer with scenes, captions, and ffmpeg export
-- `app/services/instagram.py` - Meta Graph API helper for Instagram posting
-- `app/main.py` - API endpoints for prompt-to-video and scheduling
-- `scripts/generate_reel.py` - CLI entry point
-- `scripts/schedule_instagram.py` - scheduling utility
+{
+  "prompt": "Make a 15 second premium Reel about 3 wedding photography tips",
+  "style": "cinematic minimal",
+  "duration": 15
+}
 
-## Example prompt
+The response returns a job_id. Poll GET /v1/jobs/{job_id} until status=ready.
 
-> Cinematic luxury fitness ad for a premium smart watch, dramatic studio lighting, fluid motion, macro close-ups, ultra-clean framing, high contrast, CTA overlay, feel premium and futuristic.
+Schedule with POST /v1/schedule or provide schedule_at in the create request.
 
-## Notes
+## Instagram setup
 
-This repository is designed to be open-source and local-first. For more advanced, premium video generation like a heavy generative model stack (Higgsfield-style motion, stylized scenes, multi-shot cinematic phrasing), you can integrate SDXL/FLUX diffusion pipelines or video diffusion models on top of this architecture.
+Instagram publishing uses Meta's official publishing flow. Configure a Professional Instagram account and the required Meta/Instagram app permissions, then set INSTAGRAM_USER_ID and INSTAGRAM_ACCESS_TOKEN. META_GRAPH_BASE and META_GRAPH_VERSION are configurable.
 
-## License
+The API needs a publicly reachable video URL at publishing time. MEDIA_STORE=github uses GitHub Release assets as a simple free media-hosting option.
 
-MIT
+## Free deployment path
+
+Render supports free Python/Docker web services, but free instances have ephemeral local files and can spin down. The repository therefore supports GitHub Release asset media plus the GitHub Actions scheduler. For dependable long-running scheduling, use persistent Postgres/Supabase for the database.
+
+## ChatGPT/Codex plugin
+
+The plugin/ directory is a portable Agent Plugins package containing plugin.json, mcp.json, and the instagram-content skill.
+
+Change the MCP URL in plugin/mcp.json after deploying app/mcp_server.py.
+
+## Security
+
+- Keep API keys and Meta tokens only in environment variables or managed secrets.
+- The agent never needs an Instagram password.
+- No login automation, CAPTCHA bypass, scraping, follow automation or mass-DM automation.
+- Default behavior is schedule-first; immediate publishing should be explicit.
+- Use HTTPS in production.

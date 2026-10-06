@@ -1,60 +1,164 @@
 from __future__ import annotations
 
-from typing import Optional
+import json
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app.config import ensure_output_dir
-from app.services.instagram import schedule_instagram_post
-from app.services.llm import generate_storyboard
-from app.services.video import create_reel_video
+from .config import settings
+from .db import add_schedule, get_job, init_db, new_job
+from .pipeline import build_job
+from .worker import run_once
 
-app = FastAPI(title="ARTCLASS AI Content Agent", version="0.1.0")
+app = FastAPI(
+    title="ARTCLASS AI Content Agent",
+    version="1.1.0",
+    description="Single-message content generation, rendering, scheduling and Instagram publishing.",
+)
 
+Path(settings.media_dir).mkdir(parents=True, exist_ok=True)
+Path("data").mkdir(exist_ok=True)
+app.mount("/media", StaticFiles(directory=settings.media_dir), name="media")
 
-class GenerateRequest(BaseModel):
-    prompt: str = Field(..., min_length=10)
-    style: str = "cinematic"
-    duration_seconds: int = 15
-    aspect_ratio: str = "9:16"
+class ContentRequest(BaseModel):
+    message: str = Field(min_length=3, max_length=4000)
+    style: str = Field(default="professional minimal", max_length=200)
+    duration: int = Field(default=15, ge=6, le=60)
+    schedule_at: str | None = None
+    daily: bool | None = None
+    timezone: str | None = None
+    auto_schedule: bool = True
 
+class CreateRequest(ContentRequest):
+    prompt: str | None = None
 
 class ScheduleRequest(BaseModel):
-    file_path: str
-    caption: str
-    scheduled_at: Optional[str] = None
-    account_id: Optional[str] = None
+    job_id: str
+    scheduled_at: str
+    daily: bool = False
+    timezone: str = "UTC"
 
+class WorkerRequest(BaseModel):
+    worker_key: str
+
+def auth(x_api_key: str | None = Header(default=None)) -> None:
+    if settings.api_key and x_api_key != settings.api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+@app.on_event("startup")
+async def startup():
+    init_db()
 
 @app.get("/health")
-def health() -> dict:
-    return {"status": "ok", "service": "ARTCLASS"}
+def health():
+    return {"ok": True, "service": "artclass-ai-content", "version": app.version}
 
-
-@app.post("/generate")
-def generate_video(payload: GenerateRequest) -> dict:
-    ensure_output_dir()
-    storyboard = generate_storyboard(payload.prompt, style=payload.style)
-    video_path = create_reel_video(
-        prompt=payload.prompt,
-        storyboard=storyboard,
-        duration_seconds=payload.duration_seconds,
-        aspect_ratio=payload.aspect_ratio,
-    )
+@app.get("/")
+def root():
     return {
-        "status": "created",
-        "storyboard": storyboard,
-        "video_path": video_path,
+        "service": "ARTCLASS AI Content Agent",
+        "docs": "/docs",
+        "mode": "open-source/local-first",
+        "single_message": True,
     }
 
-
-@app.post("/schedule")
-def schedule(payload: ScheduleRequest) -> dict:
-    result = schedule_instagram_post(
-        file_path=payload.file_path,
-        caption=payload.caption,
-        scheduled_at=payload.scheduled_at,
-        account_id=payload.account_id,
+@app.post("/v1/content", dependencies=[Depends(auth)])
+async def content(req: ContentRequest, background: BackgroundTasks):
+    job_id = new_job(req.message, {
+        "style": req.style,
+        "duration": req.duration,
+        "schedule_at": req.schedule_at,
+        "daily": req.daily,
+        "timezone": req.timezone,
+        "auto_schedule": req.auto_schedule,
+    })
+    background.add_task(
+        finish_job,
+        job_id,
+        req.message,
+        req.style,
+        req.duration,
+        req.schedule_at,
+        req.daily,
+        req.timezone,
+        req.auto_schedule,
     )
-    return result
+    return {"job_id": job_id, "status": "processing"}
+
+@app.post("/v1/create", dependencies=[Depends(auth)])
+async def create(req: CreateRequest, background: BackgroundTasks):
+    message = req.message or req.prompt or ""
+    if not message:
+        raise HTTPException(status_code=422, detail="message is required")
+    job_id = new_job(message, {
+        "style": req.style,
+        "duration": req.duration,
+        "schedule_at": req.schedule_at,
+        "daily": req.daily,
+        "timezone": req.timezone,
+        "auto_schedule": req.auto_schedule,
+    })
+    background.add_task(
+        finish_job,
+        job_id,
+        message,
+        req.style,
+        req.duration,
+        req.schedule_at,
+        req.daily,
+        req.timezone,
+        req.auto_schedule,
+    )
+    return {"job_id": job_id, "status": "processing"}
+
+async def finish_job(
+    job_id: str,
+    message: str,
+    style: str,
+    duration: int,
+    schedule_at: str | None,
+    daily: bool | None,
+    timezone_name: str | None,
+    auto_schedule: bool,
+):
+    await build_job(
+        job_id,
+        message,
+        style,
+        duration,
+        schedule_at,
+        daily,
+        timezone_name or settings.default_timezone,
+        auto_schedule,
+    )
+
+@app.get("/v1/jobs/{job_id}", dependencies=[Depends(auth)])
+def job(job_id: str):
+    item = get_job(job_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return item
+
+@app.post("/v1/schedule", dependencies=[Depends(auth)])
+def schedule(req: ScheduleRequest):
+    item = get_job(req.job_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if item.get("platform") != "instagram":
+        raise HTTPException(status_code=400, detail="Automatic scheduling currently supports Instagram only")
+    if item.get("media_type") not in {"video", "image", "carousel", "story_video"}:
+        raise HTTPException(status_code=400, detail="This content type is not automatically publishable")
+    if not item.get("media_urls"):
+        raise HTTPException(status_code=400, detail="This content has no publishable media")
+    return {
+        "schedule_id": add_schedule(req.job_id, req.scheduled_at, req.daily, req.timezone),
+        "status": "scheduled",
+    }
+
+@app.post("/v1/worker/run", dependencies=[Depends(auth)])
+async def worker(req: WorkerRequest):
+    if settings.worker_key and req.worker_key != settings.worker_key:
+        raise HTTPException(status_code=401, detail="Invalid worker key")
+    return {"results": await run_once()}
