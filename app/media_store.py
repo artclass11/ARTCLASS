@@ -57,3 +57,10 @@ async def publish_public_media(path: str) -> str:
         )
         r.raise_for_status()
         return r.json()["browser_download_url"]
+
+
+async def publish_public_media_many(paths: list[str]) -> list[str]:
+    urls = []
+    for path in paths:
+        urls.append(await publish_public_media(path))
+    return urls
