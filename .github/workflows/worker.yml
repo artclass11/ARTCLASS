@@ -1,0 +1,19 @@
+name: ARTCLASS scheduler
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  run-due-posts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger scheduler
+        env:
+          ARTCLASS_BASE_URL: ${{ secrets.ARTCLASS_BASE_URL }}
+          ARTCLASS_API_KEY: ${{ secrets.ARTCLASS_API_KEY }}
+          WORKER_KEY: ${{ secrets.WORKER_KEY }}
+        run: |
+          set -e
+          curl -fsS -X POST "$ARTCLASS_BASE_URL/v1/worker/run"             -H "Content-Type: application/json"             -H "X-API-Key: $ARTCLASS_API_KEY"             -d "{\"worker_key\":\"$WORKER_KEY\"}"
