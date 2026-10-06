@@ -21,7 +21,7 @@ Return ONLY valid JSON with these keys:
 title, platform, content_type, duration_seconds, hook, scenes, slides, voiceover,
 caption, hashtags, cta, schedule_text, daily, timezone.
 platform must be one of: instagram, facebook, youtube, tiktok, linkedin, x, generic.
-content_type must be one of: reel, story, post, carousel, caption, script, blog, ad.
+content_type must be one of: reel, story, post, carousel, caption, script, blog, ad, email, newsletter, product_description, landing_page, youtube_script.
 For reel/story scenes, return 4-8 objects with text and visual.
 For carousel slides, return 3-10 objects with title and body.
 For text-only content, scenes/slides can be empty.
