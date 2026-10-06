@@ -53,7 +53,7 @@ async def build_job(
         desired_schedule = schedule_at or package.get("scheduled_at")
         desired_daily = daily if daily is not None else bool(package.get("daily", False))
         platform = package.get("platform", "instagram")
-        if auto_schedule and desired_schedule and platform == "instagram" and media_type in {"video", "image", "carousel"}:
+        if auto_schedule and desired_schedule and platform == "instagram" and media_type in {"video", "image", "carousel", "story_video"}:
             add_schedule(
                 job_id,
                 desired_schedule,
