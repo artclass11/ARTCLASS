@@ -146,6 +146,10 @@ def schedule(req: ScheduleRequest):
     item = get_job(req.job_id)
     if not item:
         raise HTTPException(status_code=404, detail="Job not found")
+    if item.get("platform") != "instagram":
+        raise HTTPException(status_code=400, detail="Automatic scheduling currently supports Instagram only")
+    if item.get("media_type") not in {"video", "image", "carousel", "story_video"}:
+        raise HTTPException(status_code=400, detail="This content type is not automatically publishable")
     if not item.get("media_urls"):
         raise HTTPException(status_code=400, detail="This content has no publishable media")
     return {
