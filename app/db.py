@@ -61,8 +61,10 @@ def new_job(prompt: str) -> str:
     job_id = str(uuid.uuid4())
     ts = now()
     c = connect()
-    c.execute("INSERT INTO jobs(id,prompt,status,created_at,updated_at) VALUES(?,?,?,?,?)",
-              (job_id, prompt, "processing", ts, ts))
+    c.execute(
+        "INSERT INTO jobs(id,prompt,status,created_at,updated_at) VALUES(?,?,?,?,?)",
+        (job_id, prompt, "processing", ts, ts),
+    )
     c.close()
     return job_id
 
@@ -93,22 +95,36 @@ def add_schedule(job_id: str, scheduled_at: str, daily: bool, timezone_name: str
     schedule_id = str(uuid.uuid4())
     c = connect()
     c.execute(
-      "INSERT INTO schedules(id,job_id,scheduled_at,daily,timezone,status,created_at) VALUES(?,?,?,?,?,?,?)",
-      (schedule_id, job_id, scheduled_at, int(daily), timezone_name, "scheduled", now()),
+        "INSERT INTO schedules(id,job_id,scheduled_at,daily,timezone,status,created_at) VALUES(?,?,?,?,?,?,?)",
+        (schedule_id, job_id, scheduled_at, int(daily), timezone_name, "scheduled", now()),
     )
     c.close()
     return schedule_id
 
-def due_schedules(limit: int = 10) -> list[dict]:
+def claim_due_schedules(limit: int = 10) -> list[dict]:
     c = connect()
-    rows = c.execute(
-      """SELECT s.*, j.video_url, j.caption
-         FROM schedules s JOIN jobs j ON j.id=s.job_id
-         WHERE s.status='scheduled' AND s.scheduled_at<=?
-         ORDER BY s.scheduled_at LIMIT ?""", (now(), limit)
-    ).fetchall()
-    c.close()
-    return [dict(r) for r in rows]
+    c.execute("BEGIN IMMEDIATE")
+    try:
+        rows = c.execute(
+            """SELECT s.*, j.video_url, j.caption
+               FROM schedules s JOIN jobs j ON j.id=s.job_id
+               WHERE s.status='scheduled' AND s.scheduled_at<=?
+               ORDER BY s.scheduled_at LIMIT ?""",
+            (now(), limit),
+        ).fetchall()
+        items = [dict(r) for r in rows]
+        for item in items:
+            c.execute("UPDATE schedules SET status='processing' WHERE id=?", (item["id"],))
+        c.execute("COMMIT")
+        return items
+    except Exception:
+        c.execute("ROLLBACK")
+        raise
+    finally:
+        c.close()
+
+def due_schedules(limit: int = 10) -> list[dict]:
+    return claim_due_schedules(limit)
 
 def mark_schedule(schedule_id: str, status: str, **fields: Any) -> None:
     allowed = {"status","published_media_id","last_error","scheduled_at"}
