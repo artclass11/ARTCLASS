@@ -1,6 +1,7 @@
 import os
 import tempfile
 from pathlib import Path
+from datetime import datetime, timezone
 
 os.environ["DATABASE_URL"] = "sqlite:///" + str(Path(tempfile.mkdtemp()) / "test.db")
 os.environ["MEDIA_DIR"] = str(Path(tempfile.mkdtemp()))
@@ -35,7 +36,7 @@ def test_schedule_parser():
     value = parse_schedule(
         "tomorrow at 7 PM",
         "Asia/Kolkata",
-        now=__import__("datetime").datetime(2026, 10, 6, 10, 0, tzinfo=__import__("datetime").timezone.utc),
+        now=datetime(2026, 10, 6, 10, 0, tzinfo=timezone.utc),
     )
     assert value and value.endswith("+00:00")
 
