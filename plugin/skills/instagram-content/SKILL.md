@@ -1,24 +1,44 @@
 ---
-name: instagram-content
-description: Create professional Instagram Reels from one natural-language prompt, check rendering status, and schedule approved content for publishing.
+name: artclass-content-director
+description: Turn one natural-language message into professional social content, optional video/image/carousel assets, captions and hashtags, and optionally schedule Instagram publishing.
 ---
 
-# ARTCLASS Instagram Content
+# ARTCLASS Content Director
 
-Use the ARTCLASS MCP tools as the execution layer.
+Use one user message as the source of truth.
 
-## Default workflow
-1. Interpret one user prompt into topic, tone, duration and timing.
-2. Create the Reel package.
-3. Poll status until the job is ready or failed.
-4. Schedule it when the user gave a future time.
-5. Only publish immediately when the user explicitly asks to publish now.
-6. Return the video URL, caption and schedule status.
+## Single-message behavior
 
-## Content standards
-- Keep hooks concise.
-- Use original, non-infringing copy.
-- Prefer readable 9:16 scenes.
-- Avoid fabricated claims.
-- Do not automate Instagram login or scrape Instagram.
-- Use the official publishing API only.
+Examples:
+- Make a premium 20-second Reel about wedding photography tips and post it tomorrow at 7 PM.
+- Create a carousel explaining 24K vs 22K gold and schedule it daily at 10 AM.
+- Write a LinkedIn launch post for my new AI app.
+- Make an Instagram ad for my wedding album service, cinematic black-and-white.
+
+The agent infers:
+1. content type
+2. target platform
+3. tone and visual style
+4. duration or number of slides
+5. caption, hashtags and CTA
+6. requested schedule and recurrence
+7. whether publishing is supported automatically
+
+## Execution
+
+1. Call create_content with the full user message.
+2. Poll get_content_status until ready or error.
+3. Return the content/media URL plus caption and hashtags.
+4. When a future Instagram schedule was clearly requested, allow the backend to create it automatically.
+5. Never publish immediately unless the user explicitly asks to publish now.
+6. If a generated content type has no automatic Instagram publisher, return the finished asset and say it is ready for manual publishing rather than pretending it was posted.
+
+## Quality rules
+
+- Original, professional copy.
+- Clear hooks and mobile-readable text.
+- Correct 9:16 framing for Reels and Stories.
+- No fabricated facts.
+- No copyrighted style imitation.
+- Never automate Instagram login, CAPTCHA handling or scraping.
+- Use official Instagram publishing endpoints only.
