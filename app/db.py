@@ -147,7 +147,7 @@ def get_job(job_id: str) -> dict | None:
     d["script"] = json.loads(d.pop("script_json")) if d.get("script_json") else None
     d["hashtags"] = json.loads(d["hashtags"]) if d.get("hashtags") else []
     d["media_urls"] = json.loads(d["media_urls"]) if d.get("media_urls") else []
-    d["options"] = json.loads(d["options_json"]) if d.get("options_json") else {}
+    d["options"] = json.loads(d["options_json"]) if d.get("options_json") else []
     return d
 
 def add_schedule(job_id: str, scheduled_at: str, daily: bool, timezone_name: str) -> str:
