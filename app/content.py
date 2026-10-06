@@ -9,7 +9,10 @@ from dateparser import parse as parse_date
 
 from .config import settings
 
-ALLOWED_TYPES = {"reel", "story", "post", "carousel", "caption", "script", "blog", "ad"}
+ALLOWED_TYPES = {
+    "reel", "story", "post", "carousel", "caption", "script", "blog", "ad",
+    "email", "newsletter", "product_description", "landing_page", "youtube_script",
+}
 ALLOWED_PLATFORMS = {"instagram", "facebook", "youtube", "tiktok", "linkedin", "x", "generic"}
 
 SYSTEM = """You are ARTCLASS, a professional multi-format content director.
