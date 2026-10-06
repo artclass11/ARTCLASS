@@ -78,6 +78,12 @@ async def publish_media(media_type: str, media_urls: list[str], caption: str) ->
                 "media_type": "STORIES",
                 "access_token": settings.instagram_access_token,
             }
+        elif media_type == "story_video":
+            payload = {
+                "video_url": media_urls[0],
+                "media_type": "STORIES",
+                "access_token": settings.instagram_access_token,
+            }
         else:
             payload = {
                 "media_type": "REELS",
