@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "artclass-instagram-content",
+  "version": "1.0.0",
+  "description": "Create professional short-form content from one prompt and schedule it to Instagram through the ARTCLASS open-source agent.",
+  "author": {
+    "name": "ARTCLASS",
+    "url": "https://github.com/artclass11/ARTCLASS"
+  },
+  "homepage": "https://github.com/artclass11/ARTCLASS",
+  "repository": "https://github.com/artclass11/ARTCLASS",
+  "license": "MIT",
+  "keywords": ["instagram", "reels", "content", "video", "scheduling", "open-source"],
+  "interface": {
+    "display_name": "ARTCLASS Instagram Content",
+    "short_description": "Prompt to Reel and schedule",
+    "long_description": "Create polished short-form social videos from a single natural-language brief and schedule publishing through the official Instagram API."
+  }
+}
