@@ -28,5 +28,7 @@ class Settings:
     instagram_user_id: str = os.getenv("INSTAGRAM_USER_ID", "")
     instagram_access_token: str = os.getenv("INSTAGRAM_ACCESS_TOKEN", "")
     worker_interval_seconds: int = int(os.getenv("WORKER_INTERVAL_SECONDS", "30"))
+    default_timezone: str = os.getenv("DEFAULT_TIMEZONE", "Asia/Kolkata")
+    comfyui_base_url: str = os.getenv("COMFYUI_BASE_URL", "").rstrip("/")
 
 settings = Settings()
