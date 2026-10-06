@@ -40,6 +40,7 @@ def init_db() -> None:
       media_urls TEXT,
       content_type TEXT,
       platform TEXT,
+      options_json TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -61,6 +62,7 @@ def init_db() -> None:
         ("media_urls", "ALTER TABLE jobs ADD COLUMN media_urls TEXT"),
         ("content_type", "ALTER TABLE jobs ADD COLUMN content_type TEXT"),
         ("platform", "ALTER TABLE jobs ADD COLUMN platform TEXT"),
+        ("options_json", "ALTER TABLE jobs ADD COLUMN options_json TEXT"),
     ]:
         try:
             c.execute(ddl)
@@ -71,13 +73,13 @@ def init_db() -> None:
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
-def new_job(prompt: str) -> str:
+def new_job(prompt: str, options: dict | None = None) -> str:
     job_id = str(uuid.uuid4())
     ts = now()
     c = connect()
     c.execute(
-        "INSERT INTO jobs(id,prompt,status,created_at,updated_at) VALUES(?,?,?,?,?)",
-        (job_id, prompt, "queued", ts, ts),
+        "INSERT INTO jobs(id,prompt,status,options_json,created_at,updated_at) VALUES(?,?,?,?,?,?)",
+        (job_id, prompt, "queued", json.dumps(options or {}), ts, ts),
     )
     c.close()
     return job_id
@@ -125,7 +127,7 @@ def claim_queued_jobs(limit: int = 3) -> list[dict]:
 def update_job(job_id: str, **fields: Any) -> None:
     fields["updated_at"] = now()
     allowed = {"status","title","caption","hashtags","script_json","video_path","video_url","error",
-                "media_type","media_urls","content_type","platform","updated_at"}
+                "media_type","media_urls","content_type","platform","options_json","updated_at"}
     fields = {k:v for k,v in fields.items() if k in allowed}
     if not fields:
         return
@@ -145,6 +147,7 @@ def get_job(job_id: str) -> dict | None:
     d["script"] = json.loads(d.pop("script_json")) if d.get("script_json") else None
     d["hashtags"] = json.loads(d["hashtags"]) if d.get("hashtags") else []
     d["media_urls"] = json.loads(d["media_urls"]) if d.get("media_urls") else []
+    d["options"] = json.loads(d["options_json"]) if d.get("options_json") else {}
     return d
 
 def add_schedule(job_id: str, scheduled_at: str, daily: bool, timezone_name: str) -> str:
