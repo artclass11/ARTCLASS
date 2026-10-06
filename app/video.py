@@ -133,7 +133,13 @@ def render_carousel(package: dict) -> list[str]:
 
 def render_content(package: dict) -> tuple[str, list[str]]:
     kind = package.get("content_type", "reel")
-    if kind in {"reel", "story", "ad"}:
+    if kind == "reel":
+        path = render_card_reel(package)
+        return "video", [path]
+    if kind == "story":
+        path = render_card_reel(package)
+        return "story_video", [path]
+    if kind == "ad":
         path = render_card_reel(package)
         return "video", [path]
     if kind == "post":
